@@ -226,26 +226,10 @@ function makeDefaultData(): AppData {
   return {
     activeProfileId: "K1",
     profiles: {
-      K1: {
-        label: "K1",
-        habits: K1_HABITS,
-        completions: {},
-      },
-      K2: {
-        label: "K2",
-        habits: K2_HABITS,
-        completions: {},
-      },
-      A1: {
-        label: "A1",
-        habits: ADULT_HABITS,
-        completions: {},
-      },
-      A2: {
-        label: "A2",
-        habits: ADULT_HABITS,
-        completions: {},
-      },
+      K1: { label: "K1", habits: K1_HABITS, completions: {} },
+      K2: { label: "K2", habits: K2_HABITS, completions: {} },
+      A1: { label: "A1", habits: ADULT_HABITS, completions: {} },
+      A2: { label: "A2", habits: ADULT_HABITS, completions: {} },
     },
   };
 }
@@ -296,18 +280,32 @@ function todayKey() {
   return `${year}-${month}-${day}`;
 }
 
-function monthKey() {
-  const { year, month } = getLocalDateParts();
+function monthKey(date = new Date()) {
+  const { year, month } = getLocalDateParts(date);
   return `${year}-${month}`;
 }
 
-function daysInThisMonth() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+function daysInMonth(monthString: string) {
+  const [year, month] = monthString.split("-").map(Number);
+  return new Date(year, month, 0).getDate();
 }
 
-function getDateForDay(thisMonth: string, day: number) {
-  return `${thisMonth}-${String(day).padStart(2, "0")}`;
+function getDateForDay(monthString: string, day: number) {
+  return `${monthString}-${String(day).padStart(2, "0")}`;
+}
+
+function shiftMonth(monthString: string, amount: number) {
+  const [year, month] = monthString.split("-").map(Number);
+  const date = new Date(year, month - 1 + amount, 1);
+  return monthKey(date);
+}
+
+function formatMonthLabel(monthString: string) {
+  const [year, month] = monthString.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function getHabitTarget(habit: Habit) {
@@ -352,8 +350,26 @@ function getHabitTier(dayData: DayData, habit: Habit) {
   return "max";
 }
 
+function getStatusLabel(percent: number) {
+  if (percent === 0) return "None";
+  if (percent < 100) return "Partial";
+  if (percent === 100) return "Goal";
+  if (percent <= 200) return "Extra Credit";
+  if (percent <= 300) return "High Extra Credit";
+  return "Very High Extra Credit";
+}
+
+function csvEscape(value: string | number | boolean) {
+  const text = String(value);
+  if (text.includes(",") || text.includes('"') || text.includes("\n")) {
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+  return text;
+}
+
 function App() {
   const [currentDateKey, setCurrentDateKey] = useState(todayKey());
+  const [selectedMonthKey, setSelectedMonthKey] = useState(monthKey());
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -364,7 +380,8 @@ function App() {
   }, []);
 
   const today = currentDateKey;
-  const thisMonth = monthKey();
+  const currentMonthKey = monthKey();
+  const viewingCurrentMonth = selectedMonthKey === currentMonthKey;
 
   const [showGoals, setShowGoals] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -401,11 +418,11 @@ function App() {
   }, 0);
 
   const monthDays = useMemo(() => {
-    const totalDays = daysInThisMonth();
+    const totalDays = daysInMonth(selectedMonthKey);
 
     return Array.from({ length: totalDays }, (_, index) => {
       const day = index + 1;
-      const date = getDateForDay(thisMonth, day);
+      const date = getDateForDay(selectedMonthKey, day);
       const row = profile.completions[date] || {};
 
       const completed = activeHabits.filter(
@@ -428,7 +445,12 @@ function App() {
         highestPercent,
       };
     });
-  }, [profile.completions, profile.habits, thisMonth, activeHabits.length]);
+  }, [
+    profile.completions,
+    profile.habits,
+    selectedMonthKey,
+    activeHabits.length,
+  ]);
 
   const monthPercent = useMemo(() => {
     let completed = 0;
@@ -506,6 +528,72 @@ function App() {
     });
 
     return Math.round(total / monthDays.length);
+  }
+
+  function exportMonthCsv() {
+    const header = [
+      "Profile",
+      "Month",
+      "Date",
+      "Day",
+      "Goal",
+      "Type",
+      "Value",
+      "Target",
+      "Unit",
+      "Percent",
+      "Status",
+    ];
+
+    const rows: Array<Array<string | number | boolean>> = [header];
+
+    monthDays.forEach((day) => {
+      const row = profile.completions[day.date] || {};
+
+      activeHabits.forEach((habit) => {
+        const percent = getHabitPercent(row, habit);
+
+        const value =
+          habit.type === "check"
+            ? getHabitValue(row, habit)
+              ? "Done"
+              : ""
+            : (getHabitValue(row, habit) as number);
+
+        const target = habit.type === "check" ? 1 : getHabitTarget(habit);
+        const unit = habit.type === "check" ? "done" : getHabitUnit(habit);
+
+        rows.push([
+          activeProfileId,
+          selectedMonthKey,
+          day.date,
+          day.day,
+          habit.label,
+          habit.type,
+          value,
+          target,
+          unit,
+          percent,
+          getStatusLabel(percent),
+        ]);
+      });
+    });
+
+    const csv = rows
+      .map((row) => row.map((cell) => csvEscape(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${activeProfileId}-${selectedMonthKey}-daily-card.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
   }
 
   function tapHabit(habit: Habit) {
@@ -642,6 +730,42 @@ function App() {
     }));
   }
 
+  function MonthNavigator() {
+    return (
+      <div className="month-nav">
+        <button
+          className="month-step"
+          onClick={() =>
+            setSelectedMonthKey((previous) => shiftMonth(previous, -1))
+          }
+        >
+          ‹
+        </button>
+
+        <div className="month-title">
+          <strong>{formatMonthLabel(selectedMonthKey)}</strong>
+          {!viewingCurrentMonth && (
+            <button
+              className="month-current"
+              onClick={() => setSelectedMonthKey(currentMonthKey)}
+            >
+              Current
+            </button>
+          )}
+        </div>
+
+        <button
+          className="month-step"
+          onClick={() =>
+            setSelectedMonthKey((previous) => shiftMonth(previous, 1))
+          }
+        >
+          ›
+        </button>
+      </div>
+    );
+  }
+
   function ProfileSelector() {
     return (
       <div className="profile-picker">
@@ -687,6 +811,12 @@ function App() {
               </div>
               <span>{monthPercent}%</span>
             </div>
+
+            <MonthNavigator />
+
+            <button className="export-button" onClick={exportMonthCsv}>
+              Export Month CSV
+            </button>
 
             <div className="month-tabs">
               <button
@@ -916,6 +1046,8 @@ function App() {
                 </div>
                 <span>{monthPercent}%</span>
               </div>
+
+              <MonthNavigator />
 
               <div className="brick-grid">
                 {monthDays.map((day) => (

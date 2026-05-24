@@ -789,3 +789,17 @@ h2 {
   background: #171717;
   color: #fca5a5;
 }
+.export-button {
+  width: 100%;
+  margin: 0 0 14px;
+  border: 1px solid #93c5fd;
+  background: #2563eb;
+  color: #eff6ff;
+  border-radius: 18px;
+  padding: 13px;
+  font-weight: 900;
+}
+
+.export-button:active {
+  transform: scale(0.98);
+}
