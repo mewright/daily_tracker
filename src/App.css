@@ -803,3 +803,50 @@ h2 {
 .export-button:active {
   transform: scale(0.98);
 }
+.calendar-weekday {
+  color: #a3a3a3;
+  font-size: 10px;
+  text-align: center;
+  font-weight: 800;
+  padding: 2px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calendar-empty-cell {
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.brick-grid .calendar-empty-cell {
+  aspect-ratio: 1;
+  border-radius: 9px;
+}
+
+.single-day-grid .calendar-empty-cell {
+  min-height: 54px;
+  border-radius: 12px;
+}
+
+.month-current-badge {
+  display: inline-block;
+  margin-top: 6px;
+  border: 1px solid #166534;
+  background: #14532d;
+  color: #bbf7d0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.month-jump-current {
+  margin-top: 6px;
+  border: 1px solid #2a2a2a;
+  background: #f5f5f5;
+  color: #050505;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}

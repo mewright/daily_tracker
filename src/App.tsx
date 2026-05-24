@@ -290,6 +290,11 @@ function daysInMonth(monthString: string) {
   return new Date(year, month, 0).getDate();
 }
 
+function getMonthStartBlankCount(monthString: string) {
+  const [year, month] = monthString.split("-").map(Number);
+  return new Date(year, month - 1, 1).getDay();
+}
+
 function getDateForDay(monthString: string, day: number) {
   return `${monthString}-${String(day).padStart(2, "0")}`;
 }
@@ -367,6 +372,20 @@ function csvEscape(value: string | number | boolean) {
   return text;
 }
 
+function WeekdayHeader() {
+  return (
+    <>
+      <div className="calendar-weekday">Sun</div>
+      <div className="calendar-weekday">Mon</div>
+      <div className="calendar-weekday">Tue</div>
+      <div className="calendar-weekday">Wed</div>
+      <div className="calendar-weekday">Thu</div>
+      <div className="calendar-weekday">Fri</div>
+      <div className="calendar-weekday">Sat</div>
+    </>
+  );
+}
+
 function App() {
   const [currentDateKey, setCurrentDateKey] = useState(todayKey());
   const [selectedMonthKey, setSelectedMonthKey] = useState(monthKey());
@@ -382,6 +401,7 @@ function App() {
   const today = currentDateKey;
   const currentMonthKey = monthKey();
   const viewingCurrentMonth = selectedMonthKey === currentMonthKey;
+  const monthStartBlanks = getMonthStartBlankCount(selectedMonthKey);
 
   const [showGoals, setShowGoals] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -744,12 +764,15 @@ function App() {
 
         <div className="month-title">
           <strong>{formatMonthLabel(selectedMonthKey)}</strong>
-          {!viewingCurrentMonth && (
+
+          {viewingCurrentMonth ? (
+            <span className="month-current-badge">Current month</span>
+          ) : (
             <button
-              className="month-current"
+              className="month-jump-current"
               onClick={() => setSelectedMonthKey(currentMonthKey)}
             >
-              Current
+              Jump to current
             </button>
           )}
         </div>
@@ -806,7 +829,9 @@ function App() {
           <section className="month-card">
             <div className="month-header">
               <div>
-                <strong>This Month</strong>
+                <strong>
+                  {viewingCurrentMonth ? "This Month" : "Selected Month"}
+                </strong>
                 <p>All goals or one goal at a time.</p>
               </div>
               <span>{monthPercent}%</span>
@@ -895,7 +920,16 @@ function App() {
                   </div>
                 </div>
 
-                <div className="single-day-grid">
+                <div className="single-day-grid calendar-grid">
+                  <WeekdayHeader />
+
+                  {Array.from({ length: monthStartBlanks }, (_, index) => (
+                    <div
+                      key={`single-blank-${index}`}
+                      className="calendar-empty-cell"
+                    />
+                  ))}
+
                   {monthDays.map((day) => {
                     const row = profile.completions[day.date] || {};
                     const tier = getHabitTier(row, selectedHabit);
@@ -1041,7 +1075,9 @@ function App() {
             <section className="month-card">
               <div className="month-header">
                 <div>
-                  <strong>This Month</strong>
+                  <strong>
+                    {viewingCurrentMonth ? "This Month" : "Selected Month"}
+                  </strong>
                   <p>Compact calendar</p>
                 </div>
                 <span>{monthPercent}%</span>
@@ -1049,7 +1085,16 @@ function App() {
 
               <MonthNavigator />
 
-              <div className="brick-grid">
+              <div className="brick-grid calendar-grid">
+                <WeekdayHeader />
+
+                {Array.from({ length: monthStartBlanks }, (_, index) => (
+                  <div
+                    key={`compact-blank-${index}`}
+                    className="calendar-empty-cell"
+                  />
+                ))}
+
                 {monthDays.map((day) => (
                   <div key={day.date} className={getDayBrickClass(day)}>
                     {day.day}
