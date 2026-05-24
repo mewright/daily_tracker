@@ -14,12 +14,19 @@ type Habit = {
   paused?: boolean;
 };
 
+type Reminder = {
+  id: string;
+  time: string;
+  message: string;
+};
+
 type DayData = Record<string, boolean | number>;
 
 type ProfileData = {
   label: ProfileId;
   habits: Habit[];
   completions: Record<string, DayData>;
+  reminders: Reminder[];
 };
 
 type AppData = {
@@ -29,6 +36,8 @@ type AppData = {
 
 const OLD_STORAGE_KEY = "student-athlete-daily-card-v3";
 const STORAGE_KEY = "student-athlete-daily-card-v4-profiles";
+
+const PROFILE_IDS: ProfileId[] = ["K1", "K2", "A1", "A2"];
 
 const K1_HABITS: Habit[] = [
   {
@@ -222,15 +231,93 @@ const ADULT_HABITS: Habit[] = [
   },
 ];
 
+function defaultReminders(profileId: ProfileId): Reminder[] {
+  return [
+    {
+      id: `${profileId}-reminder-water`,
+      time: "07:30",
+      message: "Water bottle 1",
+    },
+    {
+      id: `${profileId}-reminder-focus`,
+      time: "16:30",
+      message: "Focus goal, workout, or mobility",
+    },
+    {
+      id: `${profileId}-reminder-phone`,
+      time: "21:30",
+      message: "Phone out",
+    },
+    {
+      id: `${profileId}-reminder-sleep`,
+      time: "22:00",
+      message: "Sleep window",
+    },
+  ];
+}
+
 function makeDefaultData(): AppData {
   return {
     activeProfileId: "K1",
     profiles: {
-      K1: { label: "K1", habits: K1_HABITS, completions: {} },
-      K2: { label: "K2", habits: K2_HABITS, completions: {} },
-      A1: { label: "A1", habits: ADULT_HABITS, completions: {} },
-      A2: { label: "A2", habits: ADULT_HABITS, completions: {} },
+      K1: {
+        label: "K1",
+        habits: K1_HABITS,
+        completions: {},
+        reminders: defaultReminders("K1"),
+      },
+      K2: {
+        label: "K2",
+        habits: K2_HABITS,
+        completions: {},
+        reminders: defaultReminders("K2"),
+      },
+      A1: {
+        label: "A1",
+        habits: ADULT_HABITS,
+        completions: {},
+        reminders: defaultReminders("A1"),
+      },
+      A2: {
+        label: "A2",
+        habits: ADULT_HABITS,
+        completions: {},
+        reminders: defaultReminders("A2"),
+      },
     },
+  };
+}
+
+function normalizeAppData(input: any): AppData {
+  const defaults = makeDefaultData();
+
+  const activeProfileId: ProfileId = PROFILE_IDS.includes(input?.activeProfileId)
+    ? input.activeProfileId
+    : "K1";
+
+  const profiles = PROFILE_IDS.reduce((result, profileId) => {
+    const incoming = input?.profiles?.[profileId];
+    const defaultProfile = defaults.profiles[profileId];
+
+    result[profileId] = {
+      label: profileId,
+      habits:
+        Array.isArray(incoming?.habits) && incoming.habits.length > 0
+          ? incoming.habits
+          : defaultProfile.habits,
+      completions: incoming?.completions || {},
+      reminders:
+        Array.isArray(incoming?.reminders) && incoming.reminders.length > 0
+          ? incoming.reminders
+          : defaultProfile.reminders,
+    };
+
+    return result;
+  }, {} as Record<ProfileId, ProfileData>);
+
+  return {
+    activeProfileId,
+    profiles,
   };
 }
 
@@ -239,7 +326,7 @@ function loadInitialData(): AppData {
 
   if (savedNew) {
     try {
-      return JSON.parse(savedNew);
+      return normalizeAppData(JSON.parse(savedNew));
     } catch {
       return makeDefaultData();
     }
@@ -256,9 +343,10 @@ function loadInitialData(): AppData {
         label: "K1",
         habits: oldData.habits || K1_HABITS,
         completions: oldData.completions || {},
+        reminders: defaultReminders("K1"),
       };
 
-      return migrated;
+      return normalizeAppData(migrated);
     } catch {
       return makeDefaultData();
     }
@@ -310,6 +398,24 @@ function formatMonthLabel(monthString: string) {
   return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
+  });
+}
+
+function formatReminderTime(time: string) {
+  if (!time || !time.includes(":")) return time;
+
+  const [hourText, minuteText] = time.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return time;
+
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -405,6 +511,8 @@ function App() {
 
   const [showGoals, setShowGoals] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showReminderEditor, setShowReminderEditor] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
   const [selectedMonthView, setSelectedMonthView] = useState<string>("all");
 
   const [appData, setAppData] = useState<AppData>(() => loadInitialData());
@@ -436,6 +544,10 @@ function App() {
     const percent = getHabitPercent(todayCompletions, habit);
     return total + Math.max(0, percent - 100);
   }, 0);
+
+  const sortedReminders = [...profile.reminders].sort((a, b) =>
+    a.time.localeCompare(b.time)
+  );
 
   const monthDays = useMemo(() => {
     const totalDays = daysInMonth(selectedMonthKey);
@@ -507,6 +619,8 @@ function App() {
     setSelectedMonthView("all");
     setShowGoals(false);
     setShowDetails(false);
+    setShowReminderEditor(false);
+    setCopyStatus("");
   }
 
   function getDayBrickClass(day: {
@@ -750,6 +864,96 @@ function App() {
     }));
   }
 
+  function addReminder() {
+    const id = `reminder_${Date.now()}`;
+
+    updateCurrentProfile((currentProfile) => ({
+      ...currentProfile,
+      reminders: [
+        ...currentProfile.reminders,
+        {
+          id,
+          time: "20:00",
+          message: "New reminder",
+        },
+      ],
+    }));
+
+    setShowReminderEditor(true);
+  }
+
+  function updateReminder(
+    reminderId: string,
+    field: keyof Reminder,
+    value: string
+  ) {
+    updateCurrentProfile((currentProfile) => ({
+      ...currentProfile,
+      reminders: currentProfile.reminders.map((reminder) =>
+        reminder.id === reminderId
+          ? {
+              ...reminder,
+              [field]: value,
+            }
+          : reminder
+      ),
+    }));
+
+    setCopyStatus("");
+  }
+
+  function deleteReminder(reminderId: string) {
+    updateCurrentProfile((currentProfile) => ({
+      ...currentProfile,
+      reminders: currentProfile.reminders.filter(
+        (reminder) => reminder.id !== reminderId
+      ),
+    }));
+
+    setCopyStatus("");
+  }
+
+  async function copyReminderPlan() {
+    const text = [
+      `${activeProfileId} Reminder Plan`,
+      ...sortedReminders.map(
+        (reminder) =>
+          `${formatReminderTime(reminder.time)} — ${reminder.message}`
+      ),
+    ].join("\n");
+  
+    const instructions = `Reminder plan copied.
+  
+  To set phone alerts on iPhone:
+  1. Open the Reminders app.
+  2. Tap New Reminder.
+  3. Paste one reminder line.
+  4. Tap the info button or calendar/time option.
+  5. Set the time.
+  6. Set Repeat to Daily.
+  7. Repeat for each reminder.
+  
+  On a Mac:
+  1. Open the Reminders app.
+  2. Create a new reminder.
+  3. Paste one reminder line.
+  4. Click the info button.
+  5. Set date/time and Repeat: Daily.
+  
+  Note: This app saves the reminder plan, but Apple Reminders sends the actual phone alerts.`;
+  
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("Copied. Paste into Apple Reminders.");
+      alert(instructions);
+    } catch {
+      setCopyStatus("Copy failed. Select and copy manually.");
+      alert(
+        "Copy failed. You can still manually copy the reminder list and paste each item into Apple Reminders."
+      );
+    }
+  }
+
   function MonthNavigator() {
     return (
       <div className="month-nav">
@@ -803,6 +1007,93 @@ function App() {
           <option value="A2">A2</option>
         </select>
       </div>
+    );
+  }
+
+  function ReminderPlan() {
+    return (
+      <section className="reminders">
+        <div className="reminder-header">
+          <div>
+            <strong>{activeProfileId} Reminder Plan</strong>
+            <p>
+              Save prompts here. Copy them into Apple Reminders for phone
+              alerts.
+            </p>
+          </div>
+
+          <button
+            className="reminder-edit-button"
+            onClick={() => setShowReminderEditor(!showReminderEditor)}
+          >
+            {showReminderEditor ? "Done" : "Edit"}
+          </button>
+        </div>
+
+        {!showReminderEditor && (
+          <div className="reminder-list">
+            {sortedReminders.length === 0 ? (
+              <p>No reminders yet.</p>
+            ) : (
+              sortedReminders.map((reminder) => (
+                <p key={reminder.id}>
+                  {formatReminderTime(reminder.time)} — {reminder.message}
+                </p>
+              ))
+            )}
+          </div>
+        )}
+
+        {showReminderEditor && (
+          <div className="reminder-editor">
+            {profile.reminders.map((reminder) => (
+              <div className="reminder-row" key={reminder.id}>
+                <label>
+                  Time
+                  <input
+                    type="time"
+                    value={reminder.time}
+                    onChange={(event) =>
+                      updateReminder(reminder.id, "time", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label>
+                  Message
+                  <input
+                    value={reminder.message}
+                    onChange={(event) =>
+                      updateReminder(
+                        reminder.id,
+                        "message",
+                        event.target.value
+                      )
+                    }
+                  />
+                </label>
+
+                <button
+                  className="delete-reminder-button"
+                  onClick={() => deleteReminder(reminder.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+
+            <button className="add-reminder-button" onClick={addReminder}>
+              Add Reminder
+            </button>
+          </div>
+        )}
+
+        <button className="copy-reminders-button" onClick={copyReminderPlan}>
+          Copy Reminder Plan
+        </button>
+
+        {copyStatus && <p className="copy-status">{copyStatus}</p>}
+      </section>
     );
   }
 
@@ -1110,13 +1401,7 @@ function App() {
               </button>
             </section>
 
-            <section className="reminders">
-              <strong>Reminder Plan</strong>
-              <p>7:30 AM — Water bottle 1</p>
-              <p>4:30 PM — Focus goal, lift, or mobility</p>
-              <p>9:30 PM — Phone out</p>
-              <p>10:00 PM — Sleep window</p>
-            </section>
+            <ReminderPlan />
 
             <button className="reset-button" onClick={resetToday}>
               Reset Today

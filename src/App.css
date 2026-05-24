@@ -850,3 +850,95 @@ h2 {
   font-size: 12px;
   font-weight: 900;
 }
+.reminder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.reminder-header p {
+  margin: 6px 0 0;
+  color: #a3a3a3;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.reminder-edit-button {
+  border: 1px solid #2a2a2a;
+  background: #f5f5f5;
+  color: #050505;
+  border-radius: 14px;
+  padding: 9px 12px;
+  font-weight: 900;
+}
+
+.reminder-list {
+  margin-top: 12px;
+}
+
+.reminder-editor {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.reminder-row {
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 18px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.reminder-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #a3a3a3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reminder-row input {
+  border: 1px solid #2a2a2a;
+  background: #111111;
+  color: #f5f5f5;
+  border-radius: 12px;
+  padding: 10px;
+  outline: none;
+}
+
+.add-reminder-button,
+.copy-reminders-button,
+.delete-reminder-button {
+  width: 100%;
+  border-radius: 16px;
+  padding: 11px;
+  font-weight: 900;
+}
+
+.add-reminder-button {
+  border: 1px solid #86efac;
+  background: #22c55e;
+  color: #061006;
+}
+
+.copy-reminders-button {
+  margin-top: 14px;
+  border: 1px solid #93c5fd;
+  background: #2563eb;
+  color: #eff6ff;
+}
+
+.delete-reminder-button {
+  border: 1px solid #2a2a2a;
+  background: #171717;
+  color: #fca5a5;
+}
+
+.copy-status {
+  color: #bbf7d0 !important;
+  font-weight: 800;
+}
